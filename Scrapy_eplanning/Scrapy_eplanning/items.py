@@ -7,6 +7,8 @@ import scrapy
 
 
 class ScrapyEplanningItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+    name = scrapy.Field()
+    number = scrapy.Field()
+    fax = scrapy.Field()
+    e_mail = scrapy.Field()
+    all_addresses = scrapy.Field()

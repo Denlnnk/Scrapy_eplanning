@@ -1,5 +1,6 @@
 import scrapy
 from scrapy import FormRequest
+from ..items import ScrapyEplanningItem
 
 
 def parse_table_info(response, value: str):
@@ -48,24 +49,19 @@ class EplanningSpider(scrapy.Spider):
             yield scrapy.Request(response.urljoin(next_page), callback=self.parse_pages)
 
     def parse_details(self, response):
+        item = ScrapyEplanningItem()
         agents_button = response.xpath('//input[@title="Show Agents Popup"]/@style').get()
         if 'display: inline;  visibility: visible;' in agents_button:
-            name = parse_table_info(response, 'Name')
-            number = parse_table_info(response, 'Phone')
-            fax = parse_table_info(response, 'Fax')
-            e_mail = parse_table_info(response, 'e-mail')
+            item['name'] = parse_table_info(response, 'Name')
+            item['number'] = parse_table_info(response, 'Phone')
+            item['fax'] = parse_table_info(response, 'Fax')
+            item['e_mail'] = parse_table_info(response, 'e-mail')
 
             address_first = parse_table_info(response, 'Address')
-            all_addresses = response.xpath('//tr[th="Address :"]/following-sibling::tr/td/text()').getall()[:3]
-            all_addresses.append(address_first)
+            item['all_addresses'] = response.xpath('//tr[th="Address :"]/following-sibling::tr/td/text()').getall()[:3]
+            item['all_addresses'].append(address_first)
 
-            yield {
-                'name': name,
-                'number': number,
-                'fax': fax,
-                'e_mail': e_mail,
-                'address': all_addresses
-            }
+            yield item
 
         else:
             self.logger.info(f'No AGENTS button on current page: {response}')
