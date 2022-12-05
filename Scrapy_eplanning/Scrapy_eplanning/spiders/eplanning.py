@@ -2,6 +2,12 @@ import scrapy
 from scrapy import FormRequest
 
 
+def parse_table_info(response, value: str):
+    if value == 'e-mail':
+        return response.xpath(f'//th[text()="{value} :"]/following-sibling::td/a/text()').get()
+    return response.xpath(f'//th[text()="{value} :"]/following-sibling::td/text()').get()
+
+
 class EplanningSpider(scrapy.Spider):
     name = 'eplanning'
     allowed_domains = ['eplanning.ie']
@@ -9,11 +15,11 @@ class EplanningSpider(scrapy.Spider):
 
     def parse(self, response, **kwargs):
         counties_url = response.xpath('//td/a/@href').get()
-        # for url in counties_url:
-        #     if url == '#':
-        #         pass
-        #     else:
-        yield scrapy.Request(counties_url, callback=self.parse_country)
+        for url in counties_url:
+            if url == '#':
+                pass
+            else:
+                yield scrapy.Request(counties_url, callback=self.parse_country)
 
     def parse_country(self, response):
         received_app_url = response.xpath(
@@ -42,4 +48,24 @@ class EplanningSpider(scrapy.Spider):
             yield scrapy.Request(response.urljoin(next_page), callback=self.parse_pages)
 
     def parse_details(self, response):
-        self.logger.info(response)
+        agents_button = response.xpath('//input[@title="Show Agents Popup"]/@style').get()
+        if 'display: inline;  visibility: visible;' in agents_button:
+            name = parse_table_info(response, 'Name')
+            number = parse_table_info(response, 'Phone')
+            fax = parse_table_info(response, 'Fax')
+            e_mail = parse_table_info(response, 'e-mail')
+
+            address_first = parse_table_info(response, 'Address')
+            all_addresses = response.xpath('//tr[th="Address :"]/following-sibling::tr/td/text()').getall()[:3]
+            all_addresses.append(address_first)
+
+            yield {
+                'name': name,
+                'number': number,
+                'fax': fax,
+                'e_mail': e_mail,
+                'address': all_addresses
+            }
+
+        else:
+            self.logger.info(f'No AGENTS button on current page: {response}')
