@@ -1,12 +1,13 @@
 import scrapy
 from scrapy import FormRequest
 from ..items import ScrapyEplanningItem
+from scrapy.loader import ItemLoader
 
 
-def parse_table_info(response, value: str):
+def parse_table_info(value: str):
     if value == 'e-mail':
-        return response.xpath(f'//th[text()="{value} :"]/following-sibling::td/a/text()').get()
-    return response.xpath(f'//th[text()="{value} :"]/following-sibling::td/text()').get()
+        return f'//th[text()="{value} :"]/following-sibling::td/a/text()'
+    return f'//th[text()="{value} :"]/following-sibling::td/text()'
 
 
 class EplanningSpider(scrapy.Spider):
@@ -49,19 +50,21 @@ class EplanningSpider(scrapy.Spider):
             yield scrapy.Request(response.urljoin(next_page), callback=self.parse_pages)
 
     def parse_details(self, response):
-        item = ScrapyEplanningItem()
+        l = ItemLoader(item=ScrapyEplanningItem(), selector=response)
         agents_button = response.xpath('//input[@title="Show Agents Popup"]/@style').get()
         if 'display: inline;  visibility: visible;' in agents_button:
-            item['name'] = parse_table_info(response, 'Name')
-            item['number'] = parse_table_info(response, 'Phone')
-            item['fax'] = parse_table_info(response, 'Fax')
-            item['e_mail'] = parse_table_info(response, 'e-mail')
+            l.add_value('url', response.url)
+            l.add_xpath('name', parse_table_info('Name'))
+            l.add_xpath('number', parse_table_info('Phone'))
+            l.add_xpath('fax', parse_table_info('Fax'))
+            l.add_xpath('e_mail', parse_table_info('e-mail'))
 
-            address_first = parse_table_info(response, 'Address')
-            item['all_addresses'] = response.xpath('//tr[th="Address :"]/following-sibling::tr/td/text()').getall()[:3]
-            item['all_addresses'].append(address_first)
+            address_first = response.xpath('//tr[th="Address :"]/following-sibling::tr/td/text()').get()
+            all_addresses = response.xpath('//tr[th="Address :"]/following-sibling::tr/td/text()').getall()[:3]
+            all_addresses.append(address_first)
+            l.add_value('all_addresses', all_addresses)
 
-            yield item
+            yield l.load_item()
 
         else:
             self.logger.info(f'No AGENTS button on current page: {response}')
